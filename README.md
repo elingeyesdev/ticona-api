@@ -106,8 +106,10 @@ existente; no se crean empleados desde el registro móvil.
    La API escucha por defecto en el puerto `8080`. `HOST=0.0.0.0` permite que
    otros dispositivos de la red local puedan conectarse. El endpoint de salud
    está en `http://127.0.0.1:8080/api/health`.
-   Abre `http://127.0.0.1:8080/docs` para consultar la referencia interactiva
-   ReDoc, o `http://127.0.0.1:8080/openapi.yaml` para descargar su especificación.
+   Abre `http://127.0.0.1:8080/` o `http://127.0.0.1:8080/docs` para consultar
+   la referencia interactiva ReDoc, o `http://127.0.0.1:8080/openapi.yaml` para
+   descargar su especificación. ReDoc documenta los perfiles Administrador,
+   Recepcionista y Cliente, sus permisos y las rutas móviles y Laravel.
    ReDoc carga su visor desde un CDN y requiere acceso a internet en el navegador.
 
 ## Seeders de desarrollo

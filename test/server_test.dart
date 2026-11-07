@@ -233,19 +233,24 @@ void main() {
   test(
     'serves the ReDoc page and OpenAPI specification without proxying',
     () async {
-      final docsResponse = await handler(
-        Request('GET', Uri.parse('http://localhost/docs')),
-      );
-      final docs = await docsResponse.readAsString();
-      expect(docsResponse.statusCode, 200);
-      expect(docsResponse.headers['content-type'], 'text/html; charset=utf-8');
-      expect(docs, contains('<redoc spec-url="/openapi.yaml"></redoc>'));
-      expect(
-        docs,
-        contains(
-          'https://cdn.redoc.ly/redoc/v2.1.5/bundles/redoc.standalone.js',
-        ),
-      );
+      for (final path in ['/', '/docs', '/docs/']) {
+        final docsResponse = await handler(
+          Request('GET', Uri.parse('http://localhost$path')),
+        );
+        final docs = await docsResponse.readAsString();
+        expect(docsResponse.statusCode, 200, reason: path);
+        expect(
+          docsResponse.headers['content-type'],
+          'text/html; charset=utf-8',
+        );
+        expect(docs, contains('<redoc spec-url="/openapi.yaml"></redoc>'));
+        expect(
+          docs,
+          contains(
+            'https://cdn.redoc.ly/redoc/v2.1.5/bundles/redoc.standalone.js',
+          ),
+        );
+      }
 
       final specResponse = await handler(
         Request('GET', Uri.parse('http://localhost/openapi.yaml')),
@@ -257,6 +262,28 @@ void main() {
         'application/yaml; charset=utf-8',
       );
       expect(spec, contains('openapi: 3.0.3'));
+      expect(spec, contains('### Administrador'));
+      expect(spec, contains('### Recepcionista'));
+      expect(spec, contains('### Cliente'));
+      for (final path in [
+        '/api/buses/{bus}:',
+        '/api/clientes/{cliente}:',
+        '/api/conductores/{conductor}:',
+        '/api/rutas/{ruta}:',
+        '/api/tipoencomiendas/{tipoencomienda}:',
+        '/api/tipoincidencias/{tipoincidencia}:',
+        '/api/viajes/{viaje}:',
+        '/api/reservas/{reserva}:',
+        '/api/boletos/{boleto}:',
+        '/api/encomiendas/{encomienda}:',
+        '/api/notificaciones/{notificacion}:',
+        '/api/incidenciasviaje/{incidenciaviaje}:',
+        '/api/asientosviaje/{asientoviaje}:',
+        '/api/asignacionesconductor/{asignacionconductor}:',
+        '/api/mobile/reservas/{reservaId}/comprobante:',
+      ]) {
+        expect(spec, contains(path), reason: 'Missing documented path $path');
+      }
       expect(upstreamCompleter.isCompleted, isFalse);
     },
   );

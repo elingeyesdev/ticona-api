@@ -3,27 +3,106 @@ info:
   title: Sistema Valle API
   version: 1.0.0
   description: |
-    API móvil de Sistema Valle y gateway HTTP hacia Laravel.
+    ## Aplicación y perfiles
 
-    Las rutas `/api/auth/*` y `/api/mobile/*` descritas aquí las implementa
-    este servicio Dart. Las demás rutas `/api/*` se reenvían a Laravel; sus
-    operaciones y modelos dependen de la instalación Laravel y no se pueden
-    enumerar en esta especificación.
+    Esta API conecta la aplicación móvil con la API Laravel. Flutter muestra
+    los módulos de personal según los permisos que entrega el inicio de sesión.
+    El backend vuelve a comprobar permisos en las operaciones móviles y al
+    crear encomiendas; las rutas Laravel requieren autenticación Bearer. Los
+    permisos de Laravel también se usan para la interfaz web.
 
-    La API móvil y Laravel comparten MySQL. Laravel administra el esquema.
+    ### Administrador
+
+    El rol `Administrador` recibe todos los permisos creados por Laravel:
+    gestión de usuarios, roles y asignaciones; clientes, buses, rutas,
+    conductores y tipos; viajes, reservas, boletos, encomiendas, incidencias,
+    asientos, asignaciones de conductor, notificaciones, reportes y
+    estadísticas. En la app móvil, Usuarios, Roles, Usuario-Rol,
+    Asignaciones de conductor, Incidencias, Notificaciones, Reportes y
+    Estadísticas aparecen como opciones informativas sin pantalla de gestión;
+    esas pantallas no están implementadas en el móvil.
+
+    ### Recepcionista
+
+    Permisos asignados en Laravel:
+
+    - Clientes: `clientes.ver`, `clientes.crear`, `clientes.editar`.
+    - Consulta: `buses.ver`, `rutas.ver`, `conductores.ver`,
+      `tipoencomiendas.ver`, `tipoincidencias.ver`.
+    - Reservas: `reservas.ver`, `reservas.crear`, `reservas.editar`.
+    - Viajes: `viajes.ver`, `viajes.crear`, `viajes.editar`.
+    - Encomiendas: `encomiendas.ver`, `encomiendas.crear`,
+      `encomiendas.editar`.
+    - Incidencias: `incidenciaviaje.ver`, `incidenciaviaje.crear`,
+      `incidenciaviaje.editar`, `incidenciaviaje.eliminar`.
+    - Notificaciones: `notificaciones.ver`, `notificaciones.crear`,
+      `notificaciones.editar`, `notificaciones.eliminar`.
+    - Asientos: `asientoviaje.ver`, `asientoviaje.crear`,
+      `asientoviaje.editar`, `asientoviaje.eliminar`.
+    - Boletos: `boletos.ver`, `boletos.crear`, `boletos.editar`,
+      `boletos.eliminar`.
+    - Reportes: `reportes.ver`, `estadisticas.ver`.
+
+    En la app móvil puede gestionar clientes, viajes, ventas/reservas,
+    encomiendas, boletos y asientos según esos permisos. No tiene permisos de
+    administración de usuarios/roles, ni permisos para crear, editar o
+    eliminar buses, rutas, conductores o tipos.
+
+    ### Cliente
+
+    Puede registrarse e iniciar sesión, consultar viajes y asientos, crear y
+    consultar sus propias reservas, enviar el comprobante de una reserva propia,
+    consultar sus propias encomiendas y gestionar su sesión/perfil. No recibe
+    permisos de personal y no puede registrar encomiendas desde la app.
+
+    **Importante:** una operación de Laravel requiere Bearer, pero no todas las
+    rutas Laravel comprueban permisos por rol en el controlador. La matriz
+    anterior describe los permisos que asigna Laravel y que usa la interfaz;
+    no implica una autorización adicional de servidor distinta de la indicada
+    en cada operación. La API móvil sí valida los permisos que señala cada
+    endpoint.
+
+    Laravel y la API móvil comparten MySQL. Laravel administra el esquema.
 servers:
   - url: http://localhost:8080
     description: Servidor local
 tags:
   - name: Salud
+    description: Estado del gateway y de la conexión de base de datos.
   - name: Autenticación
+    description: Inicio de sesión, registro móvil de clientes, perfil y cierre de sesión.
   - name: Viajes
+    description: Búsqueda móvil y gestión Laravel de viajes (`viajes.*`).
   - name: Asientos
+    description: Consulta/administración móvil (`asientoviaje.*`) y recursos Laravel (`asientosviaje.*`).
   - name: Clientes
+    description: Consulta y administración de clientes (`clientes.*`).
   - name: Reservas
+    description: Reservas propias de clientes y operaciones de personal (`reservas.*`).
   - name: Comprobantes
+    description: Envío y consulta de comprobantes de pago de clientes.
   - name: Boletos
+    description: Boletos y pagos desde móvil y Laravel (`boletos.*`).
+  - name: Buses
+    description: Gestión Laravel de buses (`buses.*`).
+  - name: Conductores
+    description: Gestión Laravel de conductores (`conductores.*`).
+  - name: Rutas
+    description: Gestión Laravel de rutas (`rutas.*`).
+  - name: Tipos de encomienda
+    description: Catálogo Laravel de tipos de encomienda (`tipoencomiendas.*`).
+  - name: Tipos de incidencia
+    description: Catálogo Laravel de tipos de incidencia (`tipoincidencias.*`).
+  - name: Encomiendas
+    description: Consulta móvil de encomiendas propias y administración Laravel (`encomiendas.*`).
+  - name: Incidencias
+    description: Gestión Laravel de incidencias de viaje (`incidenciaviaje.*`).
+  - name: Asignaciones de conductor
+    description: Gestión Laravel de asignaciones (`asignacionconductor.*`).
+  - name: Notificaciones
+    description: Gestión Laravel de notificaciones (`notificaciones.*`).
   - name: Laravel
+    description: Rutas de Laravel protegidas con Bearer. Los permisos indicados corresponden a la matriz de roles y a la interfaz; ver la nota de autorización en la descripción general.
 paths:
   /api/health:
     get:
@@ -110,6 +189,71 @@ paths:
       responses:
         '200':
           description: Sesión cerrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        default:
+          $ref: '#/components/responses/ApiError'
+  /api/login:
+    post:
+      tags: [Autenticación]
+      summary: Iniciar sesión de personal en Laravel
+      description: Ruta de autenticación Laravel que utiliza internamente la autenticación móvil. En la app se recomienda `/api/auth/login`, que también acepta cuentas de cliente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Sesión de personal iniciada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        default:
+          $ref: '#/components/responses/ApiError'
+  /api/logout:
+    post:
+      tags: [Autenticación]
+      summary: Cerrar sesión Laravel
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sesión cerrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        default:
+          $ref: '#/components/responses/ApiError'
+  /api/me:
+    get:
+      tags: [Autenticación]
+      summary: Consultar perfil del personal
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Perfil de la cuenta autenticada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        default:
+          $ref: '#/components/responses/ApiError'
+  /api/perfil:
+    get:
+      tags: [Autenticación]
+      summary: Consultar perfil del personal (alias de `/api/me`)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Perfil de la cuenta autenticada.
           content:
             application/json:
               schema:
@@ -472,36 +616,766 @@ paths:
                 $ref: '#/components/schemas/SuccessEnvelope'
         default:
           $ref: '#/components/responses/ApiError'
-  /api/encomiendas:
-    post:
-      tags: [Laravel]
-      summary: Crear una encomienda
-      description: El gateway exige una cuenta de personal con el permiso `encomiendas.crear` y reenvía la solicitud a Laravel, que define la validación y la respuesta completas.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              description: Campos aceptados por la ruta de encomiendas configurada en Laravel.
+  /api/buses:
+    get:
+      tags: [Buses]
+      summary: Listar buses
+      description: Requiere Bearer. El administrador tiene todos los permisos; la recepcionista solo `buses.ver`.
+      security: [{bearerAuth: []}]
       responses:
-        '200':
-          description: Respuesta de Laravel reenviada por el gateway.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-        '201':
-          description: Encomienda creada; respuesta reenviada por Laravel.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessEnvelope'
-        default:
-          $ref: '#/components/responses/ApiError'
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Buses]
+      summary: Crear bus
+      description: Requiere Bearer; permiso de interfaz `buses.crear` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody:
+        $ref: '#/components/requestBodies/LaravelResource'
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/buses/{bus}:
+    parameters:
+      - {name: bus, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Buses]
+      summary: Consultar bus
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Buses]
+      summary: Reemplazar bus
+      description: Requiere Bearer; permiso de interfaz `buses.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Buses]
+      summary: Actualizar bus
+      description: Requiere Bearer; permiso de interfaz `buses.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Buses]
+      summary: Desactivar bus
+      description: Requiere Bearer; permiso de interfaz `buses.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/clientes:
+    get:
+      tags: [Clientes]
+      summary: Listar clientes
+      description: Requiere Bearer y `clientes.ver`. Incluye búsqueda por nombre, apellido, cédula o correo y paginación.
+      security: [{bearerAuth: []}]
+      parameters:
+        - {name: search, in: query, schema: {type: string}}
+        - {name: page, in: query, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Clientes]
+      summary: Crear cliente
+      description: Requiere Bearer y `clientes.crear`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/clientes/{cliente}:
+    parameters:
+      - {name: cliente, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Clientes]
+      summary: Consultar cliente
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Clientes]
+      summary: Reemplazar cliente
+      description: Requiere Bearer y `clientes.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Clientes]
+      summary: Actualizar cliente
+      description: Requiere Bearer y `clientes.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Clientes]
+      summary: Desactivar cliente
+      description: Requiere Bearer y `clientes.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/conductores:
+    get:
+      tags: [Conductores]
+      summary: Listar conductores
+      description: Requiere Bearer y `conductores.ver`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Conductores]
+      summary: Crear conductor
+      description: Requiere Bearer; permiso de interfaz `conductores.crear` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/conductores/{conductor}:
+    parameters:
+      - {name: conductor, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Conductores]
+      summary: Consultar conductor
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Conductores]
+      summary: Reemplazar conductor
+      description: Requiere Bearer; permiso de interfaz `conductores.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Conductores]
+      summary: Actualizar conductor
+      description: Requiere Bearer; permiso de interfaz `conductores.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Conductores]
+      summary: Desactivar conductor
+      description: Requiere Bearer; permiso de interfaz `conductores.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/rutas:
+    get:
+      tags: [Rutas]
+      summary: Listar rutas
+      description: Requiere Bearer y `rutas.ver`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Rutas]
+      summary: Crear ruta
+      description: Requiere Bearer; permiso de interfaz `rutas.crear` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/rutas/{ruta}:
+    parameters:
+      - {name: ruta, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Rutas]
+      summary: Consultar ruta
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Rutas]
+      summary: Reemplazar ruta
+      description: Requiere Bearer; permiso de interfaz `rutas.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Rutas]
+      summary: Actualizar ruta
+      description: Requiere Bearer; permiso de interfaz `rutas.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Rutas]
+      summary: Desactivar ruta
+      description: Requiere Bearer; permiso de interfaz `rutas.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/tipoencomiendas:
+    get:
+      tags: [Tipos de encomienda]
+      summary: Listar tipos de encomienda
+      description: Requiere Bearer y `tipoencomiendas.ver`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Tipos de encomienda]
+      summary: Crear tipo de encomienda
+      description: Requiere Bearer; permiso de interfaz `tipoencomiendas.crear` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/tipoencomiendas/{tipoencomienda}:
+    parameters:
+      - {name: tipoencomienda, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Tipos de encomienda]
+      summary: Consultar tipo de encomienda
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Tipos de encomienda]
+      summary: Reemplazar tipo de encomienda
+      description: Requiere Bearer; permiso de interfaz `tipoencomiendas.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Tipos de encomienda]
+      summary: Actualizar tipo de encomienda
+      description: Requiere Bearer; permiso de interfaz `tipoencomiendas.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Tipos de encomienda]
+      summary: Eliminar tipo de encomienda
+      description: Requiere Bearer; permiso de interfaz `tipoencomiendas.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/tipoincidencias:
+    get:
+      tags: [Tipos de incidencia]
+      summary: Listar tipos de incidencia
+      description: Requiere Bearer y `tipoincidencias.ver`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Tipos de incidencia]
+      summary: Crear tipo de incidencia
+      description: Requiere Bearer; permiso de interfaz `tipoincidencias.crear` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/tipoincidencias/{tipoincidencia}:
+    parameters:
+      - {name: tipoincidencia, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Tipos de incidencia]
+      summary: Consultar tipo de incidencia
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Tipos de incidencia]
+      summary: Reemplazar tipo de incidencia
+      description: Requiere Bearer; permiso de interfaz `tipoincidencias.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Tipos de incidencia]
+      summary: Actualizar tipo de incidencia
+      description: Requiere Bearer; permiso de interfaz `tipoincidencias.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Tipos de incidencia]
+      summary: Eliminar tipo de incidencia
+      description: Requiere Bearer; permiso de interfaz `tipoincidencias.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/viajes:
+    get:
+      tags: [Viajes]
+      summary: Listar viajes
+      description: Requiere Bearer y `viajes.ver`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Viajes]
+      summary: Crear viaje
+      description: Requiere Bearer y `viajes.crear`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/viajes/{viaje}:
+    parameters:
+      - {name: viaje, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Viajes]
+      summary: Consultar viaje
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Viajes]
+      summary: Reemplazar viaje
+      description: Requiere Bearer y `viajes.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Viajes]
+      summary: Actualizar viaje
+      description: Requiere Bearer y `viajes.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Viajes]
+      summary: Desactivar viaje
+      description: Requiere Bearer y `viajes.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/reservas:
+    get:
+      tags: [Reservas]
+      summary: Listar reservas en Laravel
+      description: Requiere Bearer y `reservas.ver`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Reservas]
+      summary: Crear reserva en Laravel
+      description: Requiere Bearer y `reservas.crear`. Para la venta móvil usar `/api/mobile/reservas/venta`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/reservas/{reserva}:
+    parameters:
+      - {name: reserva, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Reservas]
+      summary: Consultar reserva
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Reservas]
+      summary: Reemplazar reserva
+      description: Requiere Bearer y `reservas.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Reservas]
+      summary: Actualizar reserva
+      description: Requiere Bearer y `reservas.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Reservas]
+      summary: Eliminar reserva
+      description: Requiere Bearer y `reservas.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/boletos:
+    get:
+      tags: [Boletos]
+      summary: Listar boletos
+      description: Requiere Bearer y `boletos.ver`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Boletos]
+      summary: Crear boleto en Laravel
+      description: Requiere Bearer; el flujo de compra móvil recomendado usa `/api/mobile/reservas`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/boletos/{boleto}:
+    parameters:
+      - {name: boleto, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Boletos]
+      summary: Consultar boleto
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Boletos]
+      summary: Reemplazar boleto
+      description: Requiere Bearer y `boletos.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Boletos]
+      summary: Actualizar boleto
+      description: Requiere Bearer y `boletos.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Boletos]
+      summary: Desactivar boleto
+      description: Requiere Bearer; permiso de interfaz `boletos.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/encomiendas:
+    get:
+      tags: [Encomiendas]
+      summary: Listar encomiendas en Laravel
+      description: Requiere Bearer y `encomiendas.ver`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Encomiendas]
+      summary: Crear encomienda
+      description: Requiere Bearer y `encomiendas.crear`; el gateway comprueba este permiso antes de reenviar a Laravel.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/encomiendas/{encomienda}:
+    parameters:
+      - {name: encomienda, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Encomiendas]
+      summary: Consultar encomienda
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Encomiendas]
+      summary: Actualizar encomienda
+      description: Requiere Bearer y `encomiendas.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Encomiendas]
+      summary: Actualizar encomienda
+      description: Requiere Bearer y `encomiendas.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Encomiendas]
+      summary: Eliminar encomienda
+      description: Requiere Bearer; permiso de interfaz `encomiendas.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/notificaciones:
+    get:
+      tags: [Notificaciones]
+      summary: Listar notificaciones
+      description: Requiere Bearer y `notificaciones.ver`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Notificaciones]
+      summary: Crear notificación
+      description: Requiere Bearer y `notificaciones.crear`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/notificaciones/{notificacion}:
+    parameters:
+      - {name: notificacion, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Notificaciones]
+      summary: Consultar notificación
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Notificaciones]
+      summary: Actualizar notificación
+      description: Requiere Bearer y `notificaciones.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Notificaciones]
+      summary: Actualizar notificación
+      description: Requiere Bearer y `notificaciones.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Notificaciones]
+      summary: Eliminar notificación
+      description: Requiere Bearer y `notificaciones.eliminar`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/incidenciasviaje:
+    get:
+      tags: [Incidencias]
+      summary: Listar incidencias de viaje
+      description: Requiere Bearer y `incidenciaviaje.ver`. La pantalla móvil de incidencias está identificada, pero no implementada.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Incidencias]
+      summary: Crear incidencia de viaje
+      description: Requiere Bearer y `incidenciaviaje.crear`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/incidenciasviaje/{incidenciaviaje}:
+    parameters:
+      - {name: incidenciaviaje, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Incidencias]
+      summary: Consultar incidencia de viaje
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Incidencias]
+      summary: Actualizar incidencia de viaje
+      description: Requiere Bearer y `incidenciaviaje.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Incidencias]
+      summary: Actualizar incidencia de viaje
+      description: Requiere Bearer y `incidenciaviaje.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Incidencias]
+      summary: Eliminar incidencia de viaje
+      description: Requiere Bearer y `incidenciaviaje.eliminar`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/asientosviaje:
+    get:
+      tags: [Asientos]
+      summary: Listar asientos de viaje en Laravel
+      description: Requiere Bearer; la app móvil administra la maqueta con `/api/mobile/asientos-viaje`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Asientos]
+      summary: Crear asiento de viaje en Laravel
+      description: Requiere Bearer y permiso de interfaz `asientoviaje.crear` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/asientosviaje/{asientoviaje}:
+    parameters:
+      - {name: asientoviaje, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Asientos]
+      summary: Consultar asiento de viaje
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Asientos]
+      summary: Actualizar asiento de viaje
+      description: Requiere Bearer y permiso de interfaz `asientoviaje.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Asientos]
+      summary: Actualizar asiento de viaje
+      description: Requiere Bearer y permiso de interfaz `asientoviaje.editar`.
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Asientos]
+      summary: Eliminar asiento de viaje
+      description: Requiere Bearer y permiso de interfaz `asientoviaje.eliminar`.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/asignacionesconductor:
+    get:
+      tags: [Asignaciones de conductor]
+      summary: Listar asignaciones de conductor
+      description: Requiere Bearer; permiso `asignacionconductor.ver` (administrador). No hay pantalla móvil implementada.
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    post:
+      tags: [Asignaciones de conductor]
+      summary: Crear asignación de conductor
+      description: Requiere Bearer; permiso `asignacionconductor.crear` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '201': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+  /api/asignacionesconductor/{asignacionconductor}:
+    parameters:
+      - {name: asignacionconductor, in: path, required: true, schema: {type: integer, minimum: 1}}
+    get:
+      tags: [Asignaciones de conductor]
+      summary: Consultar asignación de conductor
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    put:
+      tags: [Asignaciones de conductor]
+      summary: Actualizar asignación de conductor
+      description: Requiere Bearer; permiso `asignacionconductor.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    patch:
+      tags: [Asignaciones de conductor]
+      summary: Actualizar asignación de conductor
+      description: Requiere Bearer; permiso `asignacionconductor.editar` (administrador).
+      security: [{bearerAuth: []}]
+      requestBody: {$ref: '#/components/requestBodies/LaravelResource'}
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
+    delete:
+      tags: [Asignaciones de conductor]
+      summary: Eliminar asignación de conductor
+      description: Requiere Bearer; permiso `asignacionconductor.eliminar` (administrador).
+      security: [{bearerAuth: []}]
+      responses:
+        '200': {$ref: '#/components/responses/ResourceSuccess'}
+        default: {$ref: '#/components/responses/ApiError'}
 components:
   parameters:
     ViajeId:
@@ -512,6 +1386,12 @@ components:
         type: integer
         minimum: 1
   responses:
+    ResourceSuccess:
+      description: Operación de Laravel completada. Los campos específicos del recurso están definidos por el controlador Laravel.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SuccessEnvelope'
     ApiError:
       description: |
         Error de autenticación o permisos (401/403), recurso no encontrado
@@ -522,6 +1402,14 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
+  requestBodies:
+    LaravelResource:
+      required: true
+      description: Objeto JSON validado por el controlador Laravel correspondiente. Consulta el modelo del recurso; los campos pueden variar entre controladores.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LaravelResourceRequest'
   schemas:
     LoginRequest:
       type: object
@@ -636,6 +1524,10 @@ components:
         telefono_pasajero:
           type: string
           maxLength: 50
+    LaravelResourceRequest:
+      type: object
+      additionalProperties: true
+      description: Los campos dependen del recurso Laravel seleccionado.
     SuccessEnvelope:
       type: object
       required: [success, message, data]

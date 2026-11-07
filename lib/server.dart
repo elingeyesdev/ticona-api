@@ -49,7 +49,7 @@ Future<Response> _forwardRequest(
           : '/${request.url}';
 
   if (request.method == 'GET' &&
-      const {'/docs', '/docs/', '/docs.html'}.contains(requestPath)) {
+      const {'/', '/docs', '/docs/', '/docs.html'}.contains(requestPath)) {
     return _serveDocumentation('docs.html', 'text/html; charset=utf-8');
   }
   if (request.method == 'GET' &&
